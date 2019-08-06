@@ -51,28 +51,29 @@ function _M.execute(conf)
   sock:settimeout(conf.timeout)
 
   ok, err = sock:connect(host, port)
+  kong.log("Connect input", ok, err)
   if not ok then
-    ngx.log(ngx.ERR, name .. "failed to connect to " .. host .. ":" .. tostring(port) .. ": ", err)
+    kong.log(ngx.ERR, name .. "failed to connect to " .. host .. ":" .. tostring(port) .. ": ", err)
     return
   end
 
   if parsed_url.scheme == HTTPS then
     local _, err = sock:sslhandshake(true, host, false)
     if err then
-      ngx.log(ngx.ERR, name .. "failed to do SSL handshake with " .. host .. ":" .. tostring(port) .. ": ", err)
+      kong.log(ngx.ERR, name .. "failed to do SSL handshake with " .. host .. ":" .. tostring(port) .. ": ", err)
     end
   end
 
   ok, err = sock:send(payload)
   kong.log("Hit url, got ", ok, err)
   if not ok then
-    ngx.log(ngx.ERR, name .. "failed to send data to " .. host .. ":" .. tostring(port) .. ": ", err)
+    kong.log(ngx.ERR, name .. "failed to send data to " .. host .. ":" .. tostring(port) .. ": ", err)
   end
 
   local line, err = sock:receive("*l")
 
   if err then 
-    ngx.log(ngx.ERR, name .. "failed to read response status from " .. host .. ":" .. tostring(port) .. ": ", err)
+    kong.log(ngx.ERR, name .. "failed to read response status from " .. host .. ":" .. tostring(port) .. ": ", err)
     return
   end
 
@@ -82,7 +83,7 @@ function _M.execute(conf)
   repeat
     line, err = sock:receive("*l")
     if err then
-      ngx.log(ngx.ERR, name .. "failed to read header " .. host .. ":" .. tostring(port) .. ": ", err)
+      kong.log(ngx.ERR, name .. "failed to read header " .. host .. ":" .. tostring(port) .. ": ", err)
       return
     end
 
@@ -95,19 +96,19 @@ function _M.execute(conf)
 
   local body, err = sock:receive(tonumber(headers['content-length']))
   if err then
-    ngx.log(ngx.ERR, name .. "failed to read body " .. host .. ":" .. tostring(port) .. ": ", err)
+    kong.log(ngx.ERR, name .. "failed to read body " .. host .. ":" .. tostring(port) .. ": ", err)
     return
   end
 
   ok, err = sock:setkeepalive(conf.keepalive)
   if not ok then
-    ngx.log(ngx.ERR, name .. "failed to keepalive to " .. host .. ":" .. tostring(port) .. ": ", err)
+    kong.log(ngx.ERR, name .. "failed to keepalive to " .. host .. ":" .. tostring(port) .. ": ", err)
     return
   end
 
   if status_code > 299 then
     if err then 
-      ngx.log(ngx.ERR, name .. "failed to read response from " .. host .. ":" .. tostring(port) .. ": ", err)
+      kong.log(ngx.ERR, name .. "failed to read response from " .. host .. ":" .. tostring(port) .. ": ", err)
     end
 
     local response_body
