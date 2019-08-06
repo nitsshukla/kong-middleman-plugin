@@ -43,6 +43,7 @@ function _M.execute(conf)
   local name = "[middleman] "
   local ok, err
   local parsed_url = parse_url(conf.url)
+  kong.log("conf", conf.url, conf)
   local host = parsed_url.host
   local port = tonumber(parsed_url.port)
   local payload = _M.compose_payload(parsed_url)
@@ -130,6 +131,7 @@ function _M.compose_payload(parsed_url)
     
     read_body()
     local body_data = get_body()
+    kong.log("body_data", body_data)
 
     headers["target_uri"] = ngx.var.request_uri
     headers["target_method"] = ngx.var.request_method
