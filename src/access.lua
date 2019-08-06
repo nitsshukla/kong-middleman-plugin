@@ -107,6 +107,7 @@ function _M.execute(conf)
     return
   end
 
+  kong.log(body)
   if status_code > 299 then
     if err then 
       kong.log(ngx.ERR, name .. "failed to read response from " .. host .. ":" .. tostring(port) .. ": ", err)
@@ -118,7 +119,6 @@ function _M.execute(conf)
     else
       response_body = string.match(body, "%b{}")
     end
-    kong.log(response_body)
     return kong_response.send(status_code, response_body)
   end
 
