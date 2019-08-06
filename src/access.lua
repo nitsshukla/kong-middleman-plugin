@@ -121,7 +121,8 @@ function _M.execute(conf)
     end
     return kong_response.send(status_code, response_body)
   end
-  return kong_response.send(status_code, body)
+  kong.log("status: ", status)
+  return kong_response.send(200, body)
 end
 
 function _M.compose_payload(parsed_url)
