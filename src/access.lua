@@ -121,6 +121,9 @@ function _M.execute(conf)
     end
     return kong_response.send(status_code, response_body)
   end
+  kong.log("status: ", status_code)
+  local headers = get_headers()
+  return kong_response.exit(status_code, body, headers)
 end
 
 function _M.compose_payload(parsed_url)
