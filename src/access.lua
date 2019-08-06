@@ -138,6 +138,8 @@ function _M.compose_payload(parsed_url)
     headers["target_uri"] = ngx.var.request_uri
     headers["target_method"] = ngx.var.request_method
 
+    kong.log("ngx.var.request_method: ", ngx.var.request_method)
+
     local url
     if parsed_url.query then
       url = parsed_url.path .. "?" .. parsed_url.query
