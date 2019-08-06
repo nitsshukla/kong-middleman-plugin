@@ -11,7 +11,7 @@ end
 
 function MiddlemanHandler:access(conf)
   MiddlemanHandler.super.access(self)
-  access.execute(conf)
+  return access.execute(conf)
 end
 
 return MiddlemanHandler
