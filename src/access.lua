@@ -1,7 +1,7 @@
 local JSON = require "kong.plugins.middleman.json"
 local cjson = require "cjson"
 local url = require "socket.url"
-local kong = "kong"
+local kong = kong
 
 local string_format = string.format
 
