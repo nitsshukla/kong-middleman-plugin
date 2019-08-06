@@ -1,6 +1,7 @@
 local JSON = require "kong.plugins.middleman.json"
 local cjson = require "cjson"
 local url = require "socket.url"
+local kong = "kong"
 
 local string_format = string.format
 
@@ -63,6 +64,7 @@ function _M.execute(conf)
   end
 
   ok, err = sock:send(payload)
+  kong.log("Hit url, got ", ok, err)
   if not ok then
     ngx.log(ngx.ERR, name .. "failed to send data to " .. host .. ":" .. tostring(port) .. ": ", err)
   end
@@ -114,7 +116,7 @@ function _M.execute(conf)
     else
       response_body = string.match(body, "%b{}")
     end
-
+    kong.log(response_body)
     return kong_response.send(status_code, response_body)
   end
 
@@ -153,9 +155,10 @@ function _M.compose_payload(parsed_url)
     local payload_body = [[{"headers":]] .. raw_json_headers .. [[,"uri_args":]] .. raw_json_uri_args.. [[,"body_data":]] .. raw_json_body_data .. [[}]]
     
     local payload_headers = string_format(
-      "POST %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nContent-Type: application/json\r\nContent-Length: %s\r\n",
+      "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nContent-Type: application/json\r\nContent-Length: %s\r\n",
       url, parsed_url.host, #payload_body)
-  
+    kong.log(payload_headers)  
+    kong.log(payload_body)  
     return string_format("%s\r\n%s", payload_headers, payload_body)
 end
 
