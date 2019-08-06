@@ -158,7 +158,7 @@ function _M.compose_payload(parsed_url)
     local payload_body = [[{"headers":]] .. raw_json_headers .. [[,"uri_args":]] .. raw_json_uri_args.. [[,"body_data":]] .. raw_json_body_data .. [[}]]
     
     local payload_headers = string_format(
-      "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nContent-Type: application/json\r\nContent-Length: %s\r\n",
+      "POST %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nContent-Type: application/json\r\nContent-Length: %s\r\n",
       url, parsed_url.host, #payload_body)
     kong.log(payload_headers)  
     kong.log(payload_body)  
