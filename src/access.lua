@@ -45,12 +45,12 @@ function _M.execute(conf)
   end
 
   local name = "[middleman] "
-  local co1 = coroutine.create(request(conf.url));
-  local co2 = coroutine.create(request(url1));
-  local co3 = coroutine.create(request(url2));
-  coroutine.resume(co1)
-  coroutine.resume(co2)
-  coroutine.resume(co3)
+  local co1 = coroutine.create(request);
+  local co2 = coroutine.create(request);
+  local co3 = coroutine.create(request);
+  coroutine.resume(co1, conf.url)
+  coroutine.resume(co2, url1)
+  coroutine.resume(co3, url2)
   while (coroutine.status(co1) == "suspended" or coroutine.status(co2)=="suspended" or coroutine.status(co3)=="suspended")
   do  
     socketLib.sleep(0.001)
