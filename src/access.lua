@@ -48,12 +48,12 @@ function _M.execute(conf)
   kong.log("urls printnig", conf.urls)
   local threadArray = {}
   local index = 1;
-  for i,line in ipairs(conf.urls) do
+  for i,url in ipairs(conf.urls) do
       print(line)
       local thread = coroutine.create(request);
       threadArray[index] = thread
       index = index + 1
-      coroutine.resume(thread, line, aggregate_response)
+      coroutine.resume(thread, url, aggregate_response)
   end
 
 --[[  coroutine.resume(co2, url1, aggregate_response)
@@ -78,9 +78,9 @@ end
 function request(url, response)
   local parsed_url = parse_url(url)
   kong.log("requesting url: ", url)
-  b,r,h = httpLib.request(url)
+  local b,r,h = httpLib.request(url)
   kong.log(b,r,h)
-  response[conf.service] = {body=b, status=r}
+  response[url] = {body=b, status=r}
 end
 
 return _M
