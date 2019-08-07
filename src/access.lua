@@ -60,9 +60,9 @@ function _M.execute(conf)
 end
 
 function request(url)
-  local parsed_url = parse_url(conf.url)
-  kong.log("conf", conf.url, conf)
-  b,r,h = httpLib.request(conf.url)
+  local parsed_url = parse_url(url)
+  kong.log("conf", url)
+  b,r,h = httpLib.request(url)
   kong.log(b,r,h)
   return b;
 end
