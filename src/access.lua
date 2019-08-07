@@ -66,7 +66,7 @@ function request(conf, response)
   kong.log("conf", conf)
   b,r,h = httpLib.request(conf.url)
   kong.log(b,r,h)
-  response[conf.service] = {body:b, status:r}
+  response[conf.service] = {body=b, status=r}
 end
 
 function _M.compose_payload(parsed_url)
