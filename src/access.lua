@@ -47,7 +47,7 @@ function _M.execute(conf)
   kong.log("conf", conf.url, conf)
   b,r,h = httpLib.request(conf.url)
   kong.log(b,r,h)
-  return kong_response.exit(status_code, body, headers)
+  return kong_response.exit(r, b, h)
 end
 
 function _M.compose_payload(parsed_url)
