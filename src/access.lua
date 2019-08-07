@@ -49,7 +49,10 @@ function _M.execute(conf)
   local co3 = coroutine.create(request);
   conf.service = "mockbin"
   local aggregate_response = {}
-  kong.log("urls ", conf.urls)
+  kong.log("urls printnig", conf.urls)
+  for i,line in ipairs(conf.urls) do
+      print(line)
+  end
   coroutine.resume(co1, conf, aggregate_response)
   coroutine.resume(co2, url1, aggregate_response)
   coroutine.resume(co3, url2, aggregate_response)
