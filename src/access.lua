@@ -45,9 +45,9 @@ function _M.execute(conf)
   end
 
   local name = "[middleman] "
-  var co1 = coroutine.create(request(conf.url));
-  var co2 = coroutine.create(request(url1));
-  var co3 = coroutine.create(request(url2));
+  local co1 = coroutine.create(request(conf.url));
+  local co2 = coroutine.create(request(url1));
+  local co3 = coroutine.create(request(url2));
   coroutine.resume(co1)
   coroutine.resume(co2)
   coroutine.resume(co3)
