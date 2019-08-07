@@ -14,6 +14,7 @@ local get_body = ngx.req.get_body_data
 local get_method = ngx.req.get_method
 local ngx_re_match = ngx.re.match
 local ngx_re_find = ngx.re.find
+local httpLib = require("socket.http")
 
 local HTTP = "http"
 local HTTPS = "https"
@@ -44,85 +45,8 @@ function _M.execute(conf)
   local ok, err
   local parsed_url = parse_url(conf.url)
   kong.log("conf", conf.url, conf)
-  local host = parsed_url.host
-  local port = tonumber(parsed_url.port)
-  local payload = _M.compose_payload(parsed_url)
-
-  local sock = ngx.socket.tcp()
-  sock:settimeout(conf.timeout)
-
-  ok, err = sock:connect(host, port)
-  kong.log("Connect input", ok, err)
-  if not ok then
-    kong.log(ngx.ERR, name .. "failed to connect to " .. host .. ":" .. tostring(port) .. ": ", err)
-    return
-  end
-
-  if parsed_url.scheme == HTTPS then
-    local _, err = sock:sslhandshake(true, host, false)
-    if err then
-      kong.log(ngx.ERR, name .. "failed to do SSL handshake with " .. host .. ":" .. tostring(port) .. ": ", err)
-    end
-  end
-
-  ok, err = sock:send(payload)
-  kong.log("Hit url, got ", ok, err)
-  if not ok then
-    kong.log(ngx.ERR, name .. "failed to send data to " .. host .. ":" .. tostring(port) .. ": ", err)
-  end
-
-  local line, err = sock:receive("*l")
-
-  if err then 
-    kong.log(ngx.ERR, name .. "failed to read response status from " .. host .. ":" .. tostring(port) .. ": ", err)
-    return
-  end
-
-  local status_code = tonumber(string.match(line, "%s(%d%d%d)%s"))
-  local headers = {}
-
-  repeat
-    line, err = sock:receive("*l")
-    if err then
-      kong.log(ngx.ERR, name .. "failed to read header " .. host .. ":" .. tostring(port) .. ": ", err)
-      return
-    end
-
-    local pair = ngx_re_match(line, "(.*):\\s*(.*)", "jo")
-
-    if pair then
-      headers[string.lower(pair[1])] = pair[2]
-    end
-  until ngx_re_find(line, "^\\s*$", "jo")
-
-  local body, err = sock:receive(tonumber(headers['content-length']))
-  if err then
-    kong.log(ngx.ERR, name .. "failed to read body " .. host .. ":" .. tostring(port) .. ": ", err)
-    return
-  end
-
-  ok, err = sock:setkeepalive(conf.keepalive)
-  if not ok then
-    kong.log(ngx.ERR, name .. "failed to keepalive to " .. host .. ":" .. tostring(port) .. ": ", err)
-    return
-  end
-
-  kong.log(body)
-  if status_code > 299 then
-    if err then 
-      kong.log(ngx.ERR, name .. "failed to read response from " .. host .. ":" .. tostring(port) .. ": ", err)
-    end
-
-    local response_body
-    if conf.response == "table" then 
-      response_body = JSON:decode(string.match(body, "%b{}"))
-    else
-      response_body = string.match(body, "%b{}")
-    end
-    return kong_response.send(status_code, response_body)
-  end
-  kong.log("status: ", status_code)
-  local headers = get_headers()
+  b,r,h = httpLib.request(conf.url)
+  kong.log(b,r,h)
   return kong_response.exit(status_code, body, headers)
 end
 
@@ -138,7 +62,8 @@ function _M.compose_payload(parsed_url)
     headers["target_uri"] = ngx.var.request_uri
     headers["target_method"] = ngx.var.request_method
 
-    kong.log("ngx.var.request_method: ", ngx.var.request_method)
+    --[[ Currently taking request method from ngx, this will be handled when full fledged reques is taken from client--]]
+    
 
     local url
     if parsed_url.query then
@@ -162,8 +87,8 @@ function _M.compose_payload(parsed_url)
     local payload_body = [[{"headers":]] .. raw_json_headers .. [[,"uri_args":]] .. raw_json_uri_args.. [[,"body_data":]] .. raw_json_body_data .. [[}]]
     
     local payload_headers = string_format(
-      "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nContent-Type: application/json\r\nContent-Length: %s\r\n",
-      url, parsed_url.host, #payload_body)
+      "%s %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nContent-Type: application/json\r\nContent-Length: %s\r\n",
+      ngx.var.request_method, url, parsed_url.host, #payload_body)
     kong.log(payload_headers)  
     kong.log(payload_body)  
     return string_format("%s\r\n%s", payload_headers, payload_body)
