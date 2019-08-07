@@ -44,19 +44,21 @@ function _M.execute(conf)
   end
 
   local name = "[middleman] "
-  local co1 = coroutine.create(request);
-  local co2 = coroutine.create(request);
-  local co3 = coroutine.create(request);
-  conf.service = "mockbin"
   local aggregate_response = {}
   kong.log("urls printnig", conf.urls)
+  local threadArray = {}
+  local index = 1;
   for i,line in ipairs(conf.urls) do
       print(line)
+      local thread = coroutine.create(request);
+      threadArray[index] = thread
+      index = index + 1
+      coroutine.resume(thread, line, aggregate_response)
   end
-  coroutine.resume(co1, conf, aggregate_response)
-  coroutine.resume(co2, url1, aggregate_response)
-  coroutine.resume(co3, url2, aggregate_response)
-  while (coroutine.status(co1) == "suspended" or coroutine.status(co2)=="suspended" or coroutine.status(co3)=="suspended")
+
+--[[  coroutine.resume(co2, url1, aggregate_response)
+  coroutine.resume(co3, url2, aggregate_response) ]]--
+  while (checkAllThreadSuspended(threadArray))
   do  
     socketLib.sleep(0.001)
   end 
@@ -64,10 +66,19 @@ function _M.execute(conf)
   return kong_response.exit(200, aggregate_response)
 end
 
-function request(conf, response)
-  local parsed_url = parse_url(conf.url)
-  kong.log("conf", conf)
-  b,r,h = httpLib.request(conf.url)
+function checkAllThreadSuspended( threadArray )
+  for i, thread in ipairs(threadArray) do
+    if coroutine.status(thread) == "suspended" then
+      return true
+    end
+  end
+  return false
+end
+
+function request(url, response)
+  local parsed_url = parse_url(url)
+  kong.log("requesting url: ", url)
+  b,r,h = httpLib.request(url)
   kong.log(b,r,h)
   response[conf.service] = {body=b, status=r}
 end
