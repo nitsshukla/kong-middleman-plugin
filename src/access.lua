@@ -20,8 +20,8 @@ local HTTP = "http"
 local HTTPS = "https"
 
 
-local url1 = {"url":"http://localhost:8009/a.json", "service":"aPython"}
-local url2 = {"url":"http://localhost:8009/b.json", "service":"bPython"}
+local url1 = {url="http://localhost:8009/a.json", service="aPython"}
+local url2 = {url="http://localhost:8009/b.json", service="bPython"}
 local _M = {}
 
 local function parse_url(host_url)
