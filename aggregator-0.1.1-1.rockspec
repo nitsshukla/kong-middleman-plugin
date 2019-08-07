@@ -1,4 +1,4 @@
-package = "middleman"
+package = "aggregator"
 
 version = "0.1.1-1"
 
