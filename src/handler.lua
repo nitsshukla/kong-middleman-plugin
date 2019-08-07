@@ -1,12 +1,12 @@
 local BasePlugin = require "kong.plugins.base_plugin"
-local access = require "kong.plugins.middleman.access"
+local access = require "kong.plugins.aggregator.access"
 
 local MiddlemanHandler = BasePlugin:extend()
 
 MiddlemanHandler.PRIORITY = 900
 
 function MiddlemanHandler:new()
-  MiddlemanHandler.super.new(self, "middleman")
+  MiddlemanHandler.super.new(self, "aggregator")
 end
 
 function MiddlemanHandler:access(conf)

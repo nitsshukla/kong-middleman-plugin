@@ -24,9 +24,9 @@ dependencies = {
 build = {
   type = "builtin",
   modules = {
-    ["kong.plugins.middleman.access"] = "src/access.lua",
-    ["kong.plugins.middleman.handler"] = "src/handler.lua",
-    ["kong.plugins.middleman.schema"] = "src/schema.lua",
-	["kong.plugins.middleman.json"] = "src/json.lua"
+    ["kong.plugins.aggregator.access"] = "src/access.lua",
+    ["kong.plugins.aggregator.handler"] = "src/handler.lua",
+    ["kong.plugins.aggregator.schema"] = "src/schema.lua",
+	["kong.plugins.aggregator.json"] = "src/json.lua"
   }
 }

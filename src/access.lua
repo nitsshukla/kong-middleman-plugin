@@ -1,4 +1,3 @@
-local JSON = require "kong.plugins.middleman.json"
 local cjson = require "cjson"
 local url = require "socket.url"
 local kong = kong
@@ -67,50 +66,6 @@ function request(conf, response)
   b,r,h = httpLib.request(conf.url)
   kong.log(b,r,h)
   response[conf.service] = {body=b, status=r}
-end
-
-function _M.compose_payload(parsed_url)
-    local headers = get_headers()
-    local uri_args = get_uri_args()
-    local next = next
-    
-    read_body()
-    local body_data = get_body()
-    kong.log("body_data", body_data)
-
-    headers["target_uri"] = ngx.var.request_uri
-    headers["target_method"] = ngx.var.request_method
-
-    --[[ Currently taking request method from ngx, this will be handled when full fledged reques is taken from client--]]
-    
-
-    local url
-    if parsed_url.query then
-      url = parsed_url.path .. "?" .. parsed_url.query
-    else
-      url = parsed_url.path
-    end
-    
-    local raw_json_headers = JSON:encode(headers)
-    local raw_json_body_data = JSON:encode(body_data)
-
-    local raw_json_uri_args
-    if next(uri_args) then 
-      raw_json_uri_args = JSON:encode(uri_args) 
-    else
-      -- Empty Lua table gets encoded into an empty array whereas a non-empty one is encoded to JSON object.
-      -- Set an empty object for the consistency.
-      raw_json_uri_args = "{}"
-    end
-
-    local payload_body = [[{"headers":]] .. raw_json_headers .. [[,"uri_args":]] .. raw_json_uri_args.. [[,"body_data":]] .. raw_json_body_data .. [[}]]
-    
-    local payload_headers = string_format(
-      "%s %s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nContent-Type: application/json\r\nContent-Length: %s\r\n",
-      ngx.var.request_method, url, parsed_url.host, #payload_body)
-    kong.log(payload_headers)  
-    kong.log(payload_body)  
-    return string_format("%s\r\n%s", payload_headers, payload_body)
 end
 
 return _M
