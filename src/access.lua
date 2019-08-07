@@ -20,8 +20,8 @@ local HTTP = "http"
 local HTTPS = "https"
 
 
-local url1 = "http://localhost:8009/a.json"
-local url2 = "http://localhost:8009/b.json"
+local url1 = {"url":"http://localhost:8009/a.json", "service":"aPython"}
+local url2 = {"url":"http://localhost:8009/b.json", "service":"bPython"}
 local _M = {}
 
 local function parse_url(host_url)
@@ -48,23 +48,25 @@ function _M.execute(conf)
   local co1 = coroutine.create(request);
   local co2 = coroutine.create(request);
   local co3 = coroutine.create(request);
-  coroutine.resume(co1, conf.url)
-  coroutine.resume(co2, url1)
-  coroutine.resume(co3, url2)
+  conf.service = "mockbin"
+  local aggregate_response = {}
+  coroutine.resume(co1, conf, aggregate_response)
+  coroutine.resume(co2, url1, aggregate_response)
+  coroutine.resume(co3, url2, aggregate_response)
   while (coroutine.status(co1) == "suspended" or coroutine.status(co2)=="suspended" or coroutine.status(co3)=="suspended")
   do  
     socketLib.sleep(0.001)
   end 
 
-  return kong_response.exit(r, b, h)
+  return kong_response.exit(200, aggregate_response)
 end
 
-function request(url)
-  local parsed_url = parse_url(url)
-  kong.log("conf", url)
-  b,r,h = httpLib.request(url)
+function request(conf, response)
+  local parsed_url = parse_url(conf.url)
+  kong.log("conf", conf)
+  b,r,h = httpLib.request(conf.url)
   kong.log(b,r,h)
-  return b;
+  response[conf.service] = {"body":b, "status":r}
 end
 
 function _M.compose_payload(parsed_url)
