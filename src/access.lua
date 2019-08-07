@@ -15,10 +15,13 @@ local get_method = ngx.req.get_method
 local ngx_re_match = ngx.re.match
 local ngx_re_find = ngx.re.find
 local httpLib = require("socket.http")
-
+local socketLib = require("socket")
 local HTTP = "http"
 local HTTPS = "https"
 
+
+local url1 = "http://localhost:8009/a.json"
+local url2 = "http://localhost:8009/b.json"
 local _M = {}
 
 local function parse_url(host_url)
@@ -42,12 +45,26 @@ function _M.execute(conf)
   end
 
   local name = "[middleman] "
-  local ok, err
+  var co1 = coroutine.create(request(conf.url));
+  var co2 = coroutine.create(request(url1));
+  var co3 = coroutine.create(request(url2));
+  coroutine.resume(co1)
+  coroutine.resume(co2)
+  coroutine.resume(co3)
+  while (coroutine.status(co1) == "suspended" or coroutine.status(co2)=="suspended" or coroutine.status(co3)=="suspended")
+  do  
+    socketLib.sleep(0.001)
+  end 
+
+  return kong_response.exit(r, b, h)
+end
+
+function request(url)
   local parsed_url = parse_url(conf.url)
   kong.log("conf", conf.url, conf)
   b,r,h = httpLib.request(conf.url)
   kong.log(b,r,h)
-  return kong_response.exit(r, b, h)
+  return b;
 end
 
 function _M.compose_payload(parsed_url)
