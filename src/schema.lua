@@ -14,7 +14,7 @@ local colon_string_record = {
 return {
   no_consumer = true,
   fields = {
-    urls = {required = true, type = "record"},
+    urls = {required = true, type = "array"},
     response = { required = true, default = "table", type = "string", enum = {"table", "string"}},
     timeout = { default = 10000, type = "number" },
     keepalive = { default = 60000, type = "number" }
