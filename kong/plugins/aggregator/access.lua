@@ -28,6 +28,7 @@ function update_tree()
   for k, v in pairs(kong.request.get_query()) do
     kong.log.inspect(k, v)
   end
+
   local index = 1;
   for path_split in string.gmatch(path, "[^/]+") do
     kong.log(index,path_split)
