@@ -35,8 +35,10 @@ function get_filled_url(url)
   kong.log("Got url", url)
   local path = kong.request.get_path();
   local index = 1;
+  kong.log("Updated tree", JSON:encode(aggregator_args_tree))
   for key, value in ipairs(aggregator_args_tree) do
-    url=string.gsub(url,ARGUMENT_PREFIX..key,value)
+    kong.log(key,value)
+    url=string.gsub(url,key,value)
     kong.log("Changed url: ", url)
   end
   return url;
