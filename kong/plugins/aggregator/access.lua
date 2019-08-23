@@ -1,3 +1,4 @@
+local JSON = require "kong.plugins.aggregator.json"
 local cjson = require "cjson"
 local url = require "socket.url"
 local kong = kong
@@ -18,57 +19,62 @@ local socketLib = require("socket")
 local HTTP = "http"
 local HTTPS = "https"
 
-
-local url1 = {url="http://localhost:8009/a.json", service="aPython"}
-local url2 = {url="http://localhost:8009/b.json", service="bPython"}
 local _M = {}
+local THREAD_STATUS_SUSPENDED = "suspended"
+local STATUS_OK = 200
+local METHOD_OPTIONS = "OPTIONS"
 
-local function parse_url(host_url)
-  local parsed_url = url.parse(host_url)
-  if not parsed_url.port then
-    if parsed_url.scheme == HTTP then
-      parsed_url.port = 80
-     elseif parsed_url.scheme == HTTPS then
-      parsed_url.port = 443
-     end
-  end
-  if not parsed_url.path then
-    parsed_url.path = "/"
-  end
-  return parsed_url
+function getSuffix() 
+  local uri_args = get_uri_args()
+  kong.log("uri_args", uri_args)
+  kong.log("uri_args_type", type(uri_args))
+
+  print_table(uri_args)
+  uri_args = uri_args["request"]
+  kong.log("uri_args", uri_args)
+  local split = string.gmatch(uri_args, "%S+")
+  split()
+  local path = split()
+  return string.gsub(path, "^/[a-z]+", "")
 end
 
 function _M.execute(conf)
-  if not conf.run_on_preflight and get_method() == "OPTIONS" then
+  if not conf.run_on_preflight and get_method() == METHOD_OPTIONS then
     return
   end
-
-  local name = "[middleman] "
+  kong.log(kong.request)
   local aggregate_response = {}
   kong.log("urls printnig", conf.urls)
+  --local suffix = getSuffix()
+  kong.log("uris: ", uri_args);
   local threadArray = {}
   local index = 1;
   for i,url in ipairs(conf.urls) do
-      print(line)
       local thread = coroutine.create(request);
       threadArray[index] = thread
       index = index + 1
+      --local modified_url = url + "/" + suffix
+      --kong.log("modified_url",modified_url)
       coroutine.resume(thread, url, aggregate_response)
   end
 
---[[  coroutine.resume(co2, url1, aggregate_response)
-  coroutine.resume(co3, url2, aggregate_response) ]]--
   while (checkAllThreadSuspended(threadArray))
   do  
     socketLib.sleep(0.001)
   end 
 
-  return kong_response.exit(200, aggregate_response)
+  return kong_response.exit(STATUS_OK, aggregate_response)
+end
+
+function print_table(table)
+  for i,obj in ipairs(table) do
+    kong.log("pring table", i, obj)
+  end
 end
 
 function checkAllThreadSuspended( threadArray )
   for i, thread in ipairs(threadArray) do
-    if coroutine.status(thread) == "suspended" then
+    if coroutine.status(thread) == THREAD_STATUS_SUSPENDED then
       return true
     end
   end
@@ -76,7 +82,6 @@ function checkAllThreadSuspended( threadArray )
 end
 
 function request(url, response)
-  local parsed_url = parse_url(url)
   kong.log("requesting url: ", url)
   local b,r,h = httpLib.request(url)
   kong.log(b,r,h)
