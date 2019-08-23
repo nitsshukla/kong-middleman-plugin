@@ -7,17 +7,9 @@ local string_format = string.format
 
 local kong_response = kong.response
 
-local get_headers = ngx.req.get_headers
-local get_uri_args = ngx.req.get_uri_args
-local read_body = ngx.req.read_body
-local get_body = ngx.req.get_body_data
 local get_method = ngx.req.get_method
-local ngx_re_match = ngx.re.match
-local ngx_re_find = ngx.re.find
 local httpLib = require("socket.http")
 local socketLib = require("socket")
-local HTTP = "http"
-local HTTPS = "https"
 
 local _M = {}
 local THREAD_STATUS_SUSPENDED = "suspended"
@@ -51,6 +43,7 @@ function _M.execute(conf)
   local aggregate_response = {}
   local threadArray = {}
   local index = 1;
+  kong.log(JSON::encode(conf.urls))
   local urls = update_arguments(conf.urls)
   for i,url in ipairs(urls) do
       local thread = coroutine.create(request);
