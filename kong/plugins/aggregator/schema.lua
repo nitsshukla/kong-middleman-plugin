@@ -15,7 +15,7 @@ return {
   no_consumer = true,
   fields = {
     urls = {required = true, type = "array"},
-    response = { required = true, default = "table", type = "string", enum = {"table", "string"}},
+    method = { required = true, default = "GET", type = "string", enum = {"GET", "POST","PUT","DELETE"},},
     timeout = { default = 10000, type = "number" },
     keepalive = { default = 60000, type = "number" }
   }

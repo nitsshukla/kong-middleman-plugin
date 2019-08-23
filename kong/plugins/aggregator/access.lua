@@ -23,19 +23,24 @@ local _M = {}
 local THREAD_STATUS_SUSPENDED = "suspended"
 local STATUS_OK = 200
 local METHOD_OPTIONS = "OPTIONS"
+local SLEEP_TIME_IN_S = 0.001
+local ARGUMENT_PREFIX = '$'
 
-function getSuffix() 
-  local uri_args = get_uri_args()
-  kong.log("uri_args", uri_args)
-  kong.log("uri_args_type", type(uri_args))
+local aggregator_args_tree = {}
 
-  print_table(uri_args)
-  uri_args = uri_args["request"]
-  kong.log("uri_args", uri_args)
-  local split = string.gmatch(uri_args, "%S+")
-  split()
-  local path = split()
-  return string.gsub(path, "^/[a-z]+", "")
+function update_arguments(urls)
+  local path = kong.request.get_path();
+  local index = 1;
+  for path_split in string.gmatch(path, "[^/]+") do
+    kong.log(index,path_split)
+    aggregator_args_tree[ARGUMENT_PREFIX..index]=path_split
+    for i=1,#urls do
+      urls[i]=string.gsub(urls[i],ARGUMENT_PREFIX..index,path_split)
+      kong.log("sub url ", urls[i])
+    end
+    index=index+1
+  end
+  return urls
 end
 
 function _M.execute(conf)
@@ -44,32 +49,22 @@ function _M.execute(conf)
   end
   kong.log(kong.request)
   local aggregate_response = {}
-  kong.log("urls printnig", conf.urls)
-  --local suffix = getSuffix()
-  kong.log("uris: ", uri_args);
   local threadArray = {}
   local index = 1;
-  for i,url in ipairs(conf.urls) do
+  local urls = update_arguments(conf.urls)
+  for i,url in ipairs(urls) do
       local thread = coroutine.create(request);
       threadArray[index] = thread
       index = index + 1
-      --local modified_url = url + "/" + suffix
-      --kong.log("modified_url",modified_url)
       coroutine.resume(thread, url, aggregate_response)
   end
 
   while (checkAllThreadSuspended(threadArray))
   do  
-    socketLib.sleep(0.001)
+    socketLib.sleep(SLEEP_TIME_IN_S)
   end 
 
   return kong_response.exit(STATUS_OK, aggregate_response)
-end
-
-function print_table(table)
-  for i,obj in ipairs(table) do
-    kong.log("pring table", i, obj)
-  end
 end
 
 function checkAllThreadSuspended( threadArray )
