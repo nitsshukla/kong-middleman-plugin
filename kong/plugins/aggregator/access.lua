@@ -28,7 +28,7 @@ function update_tree()
     aggregator_args_tree[ARGUMENT_PREFIX..index]=path_split
     index=index+1
   end
-  kong.log("Updated tree", JSON:decode(aggregator_args_tree))
+  kong.log("Updated tree", JSON:encode(aggregator_args_tree))
 end
 
 function get_filled_url(url)
@@ -55,10 +55,11 @@ function _M.execute(conf)
   subrequests = conf.subrequests_conf
   update_tree()
   --local urls = update_arguments(conf.urls)
-  for i,subrequest in ipairs(subrequests) do
+  for i,subrequest_json in ipairs(subrequests) do
       local thread = coroutine.create(request);
       threadArray[index] = thread
       index = index + 1
+      subrequest = JSON:decode(subrequest_json)
       local url = get_filled_url(subrequest.url)
       coroutine.resume(thread, url, aggregate_response, subrequest.method)
   end
