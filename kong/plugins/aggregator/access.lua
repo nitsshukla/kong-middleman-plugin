@@ -28,13 +28,16 @@ function update_tree()
     aggregator_args_tree[ARGUMENT_PREFIX..index]=path_split
     index=index+1
   end
+  kong.log("Updated tree", JSON:decode(aggregator_args_tree))
 end
 
 function get_filled_url(url)
+  kong.log("Got url", url)
   local path = kong.request.get_path();
   local index = 1;
   for key, value in ipairs(aggregator_args_tree) do
     url=string.gsub(url,ARGUMENT_PREFIX..key,value)
+    kong.log("Changed url: ", url)
   end
   return url;
 end
