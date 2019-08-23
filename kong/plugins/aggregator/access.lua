@@ -33,7 +33,7 @@ end
 function get_filled_url(url)
   local path = kong.request.get_path();
   local index = 1;
-  for key, value in aggregator_args_tree do
+  for key, value in ipairs(aggregator_args_tree) do
     url=string.gsub(url,ARGUMENT_PREFIX..key,value)
   end
   return url;
@@ -47,7 +47,9 @@ function _M.execute(conf)
   local aggregate_response = {}
   local threadArray = {}
   local index = 1;
-  subrequests = JSON:decode(conf.subrequests_conf)
+  kong.log(conf.subrequests_conf[1])
+  --kong.log(conf.subrequests_conf["1"])
+  subrequests = conf.subrequests_conf
   update_tree()
   --local urls = update_arguments(conf.urls)
   for i,subrequest in ipairs(subrequests) do
