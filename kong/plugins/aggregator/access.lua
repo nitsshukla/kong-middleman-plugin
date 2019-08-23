@@ -20,19 +20,23 @@ local ARGUMENT_PREFIX = '$'
 
 local aggregator_args_tree = {}
 
-function update_arguments(urls)
+function update_tree()
   local path = kong.request.get_path();
   local index = 1;
   for path_split in string.gmatch(path, "[^/]+") do
     kong.log(index,path_split)
     aggregator_args_tree[ARGUMENT_PREFIX..index]=path_split
-    for i=1,#urls do
-      urls[i]=string.gsub(urls[i],ARGUMENT_PREFIX..index,path_split)
-      kong.log("sub url ", urls[i])
-    end
     index=index+1
   end
-  return urls
+end
+
+function get_filled_url(url)
+  local path = kong.request.get_path();
+  local index = 1;
+  for key, value in aggregator_args_tree do
+    url=string.gsub(url,ARGUMENT_PREFIX..key,value)
+  end
+  return url;
 end
 
 function _M.execute(conf)
@@ -43,13 +47,15 @@ function _M.execute(conf)
   local aggregate_response = {}
   local threadArray = {}
   local index = 1;
-  kong.log(JSON::encode(conf.urls))
-  local urls = update_arguments(conf.urls)
-  for i,url in ipairs(urls) do
+  subrequests = JSON:decode(conf.subrequests_conf)
+  update_tree()
+  --local urls = update_arguments(conf.urls)
+  for i,subrequest in ipairs(subrequests) do
       local thread = coroutine.create(request);
       threadArray[index] = thread
       index = index + 1
-      coroutine.resume(thread, url, aggregate_response)
+      local url = get_filled_url(subrequest.url)
+      coroutine.resume(thread, url, aggregate_response, subrequest.method)
   end
 
   while (checkAllThreadSuspended(threadArray))
@@ -69,8 +75,8 @@ function checkAllThreadSuspended( threadArray )
   return false
 end
 
-function request(url, response)
-  kong.log("requesting url: ", url)
+function request(url, response, method)
+  kong.log("requesting url: ", url, " method: ", method)
   local b,r,h = httpLib.request(url)
   kong.log(b,r,h)
   response[url] = {body=b, status=r}

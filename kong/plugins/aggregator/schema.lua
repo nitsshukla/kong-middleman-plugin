@@ -14,7 +14,7 @@ local colon_string_record = {
 return {
   no_consumer = true,
   fields = {
-    urls = {required = true, type = "array"},
+    subrequests_conf = {required = true, type = "array"},
     method = { required = true, default = "GET", type = "string", enum = {"GET", "POST","PUT","DELETE"},},
     timeout = { default = 10000, type = "number" },
     keepalive = { default = 60000, type = "number" }
