@@ -28,14 +28,14 @@ function update_tree()
     aggregator_args_tree[ARGUMENT_PREFIX..index]=path_split
     index=index+1
   end
-  kong.log("Updated tree", JSON:encode(aggregator_args_tree))
+  --kong.log("Updated tree", JSON:encode(aggregator_args_tree))
 end
 
 function get_filled_url(url)
   kong.log("Got url", url)
   local path = kong.request.get_path();
   local index = 1;
-  kong.log("Updated tree", JSON:encode(aggregator_args_tree))
+  --kong.log("Updated tree", JSON:encode(aggregator_args_tree))
   for key, value in ipairs(aggregator_args_tree) do
     kong.log(key,value)
     url=string.gsub(url,key,value)
@@ -48,7 +48,7 @@ function _M.execute(conf)
   if not conf.run_on_preflight and get_method() == METHOD_OPTIONS then
     return
   end
-  kong.log(kong.request)
+
   local aggregate_response = {}
   local threadArray = {}
   local index = 1;
