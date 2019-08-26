@@ -8,6 +8,8 @@ local string_format = string.format
 local kong_response = kong.response
 
 local get_method = ngx.req.get_method
+local get_headers = ngx.req.get_headers
+
 local httpLib = require("socket.http")
 local socketLib = require("socket")
 
@@ -36,6 +38,7 @@ function get_filled_url(url)
   local path = kong.request.get_path();
   local index = 1;
   --kong.log("Updated tree", JSON:encode(aggregator_args_tree))
+  kong.log(aggregator_args_tree["$1"])
   for key, value in ipairs(aggregator_args_tree) do
     kong.log(key,value)
     url=string.gsub(url,key,value)
@@ -57,13 +60,14 @@ function _M.execute(conf)
   subrequests = conf.subrequests_conf
   update_tree()
   --local urls = update_arguments(conf.urls)
-  for i,subrequest_json in ipairs(subrequests) do
+  for i,subrequest_json in pairs(subrequests) do
       local thread = coroutine.create(request);
       threadArray[index] = thread
       index = index + 1
       subrequest = JSON:decode(subrequest_json)
       local url = get_filled_url(subrequest.url)
-      coroutine.resume(thread, url, aggregate_response, subrequest.method)
+      coroutine.resume(thread, url, aggregate_response, subrequest)
+      --take care of defaults?
   end
 
   while (checkAllThreadSuspended(threadArray))
@@ -83,11 +87,16 @@ function checkAllThreadSuspended( threadArray )
   return false
 end
 
-function request(url, response, method)
-  kong.log("requesting url: ", url, " method: ", method)
+function request(url, response, subrequest)
+  kong.log("requesting url: ", url, " method: ", subrequest.method)
+  local request_load = {}
+  request_load["url"]=url
+  request_load["method"]=subrequest.method
+  request_load["headers"]=get_headers() --any other header?
+  
   local b,r,h = httpLib.request(url)
   kong.log(b,r,h)
-  response[url] = {body=b, status=r}
+  response[subrequest.name] = {body=b, status=r}
 end
 
 return _M

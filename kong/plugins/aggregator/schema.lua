@@ -14,6 +14,7 @@ local colon_string_record = {
 return {
   no_consumer = true,
   fields = {
+    --mandate subrequest to be containing name, url, method
     subrequests_conf = {required = true, type = "array"},
     method = { required = true, default = "GET", type = "string", enum = {"GET", "POST","PUT","DELETE"},},
     timeout = { default = 10000, type = "number" },
