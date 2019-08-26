@@ -24,6 +24,10 @@ local aggregator_args_tree = {}
 
 function update_tree()
   local path = kong.request.get_path();
+  kong.log("paht: ", path)
+  for k, v in pairs(kong.request.get_query()) do
+    kong.log.inspect(k, v)
+  end
   local index = 1;
   for path_split in string.gmatch(path, "[^/]+") do
     kong.log(index,path_split)
@@ -35,11 +39,10 @@ end
 
 function get_filled_url(url)
   kong.log("Got url", url)
-  local path = kong.request.get_path();
   local index = 1;
   --kong.log("Updated tree", JSON:encode(aggregator_args_tree))
   kong.log(aggregator_args_tree["$1"])
-  for key, value in ipairs(aggregator_args_tree) do
+  for key, value in pairs(aggregator_args_tree) do
     kong.log(key,value)
     url=string.gsub(url,key,value)
     kong.log("Changed url: ", url)
@@ -96,7 +99,7 @@ function request(url, response, subrequest)
   
   local b,r,h = httpLib.request(url)
   kong.log(b,r,h)
-  response[subrequest.name] = {body=b, status=r}
+  response[subrequest.name] = {body=b, status=r,header=h}
 end
 
 return _M
