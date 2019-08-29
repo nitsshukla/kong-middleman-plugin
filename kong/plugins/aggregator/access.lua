@@ -1,7 +1,6 @@
 local JSON = require "kong.plugins.aggregator.json"
 local cjson = require "cjson"
 local url = require "socket.url"
-local lrucache = require "resty.lrucache"
 
 local kong = kong
 
@@ -15,7 +14,6 @@ local get_headers = ngx.req.get_headers
 local httpLib = require("socket.http")
 local httpsLib = require("ssl.https")
 local socketLib = require("socket")
-local cacheMgr = nil;
 
 local _M = {}
 local THREAD_STATUS_SUSPENDED = "suspended"
@@ -65,12 +63,6 @@ function _M.execute(conf)
   if not conf.run_on_preflight and get_method() == METHOD_OPTIONS then
     return
   end
-  if cacheMgr == nil then
-    cacheMgr, err = lrucache.new(200, 0.5)
-    kong.log("lrucache, err: ",err)
-    lrucache.set("Pricing", 1)
-    lrucache.set("Catalogue", 1)
-  end
 
   local aggregate_response = {}
   local threadArray = {}
@@ -112,41 +104,32 @@ function request(url, response, subrequest)
   local headers=get_headers() --any other header?
   local auth_response={}  
 
-  if subrequest["auth_token"]~=nil then
-    kong.log("Getting for ", subrequest.name)
-    local token = cacheMgr.get(subrequest.name)
-    if token == nil or token == 1 then
-	    local auth_token = subrequest["auth_token"]
-	    for k,v in pairs(auth_token.headers) do
-	      kong.log("sub auth header",k,": ",v)
-	    end
-	    for k,v in pairs(auth_token.data) do
-	      kong.log("sub auth data",k,": ",v)
-	    end
-	    kong.log("auth_token.method ",auth_token.method)
-	    local auth_response_json,status,header = http_request(auth_token.url,auth_token.method,auth_token.headers,JSON:encode(auth_token.data))
-	    --need to validate 200 status and cache using 'refreshExpireIn'
-	    kong.log(auth_response_json)
-	    auth_response = JSON:decode(auth_response_json)
-	    local tokenType, accessToken,expiryTimeInMins;
-	    for k,v in pairs(auth_response) do
-	      kong.log("sub auth response",k,": ",v)
-	      if k == "tokenType" then
-		tokenType =v;
-	      end
-	      if k == "accessToken" then
-		accessToken =v;
-	      end
-              if k == "expiresIn" then
-                expiryTimeInMins = tonumber(v) - math.random(2,10);
-              end
-	    end
-	    token = tokenType..' '..accessToken
-	    cacheMgr.set(subrequest.name, token, expiryTimeInMins*60);
-            kong.log("created key") --send metrics
-    else
-            kong.log("reusing cached key")
+  kong.log("Getting for ", subrequest.name)
+  local auth_token = subrequest["auth_token"]
+  for k,v in pairs(auth_token.headers) do
+    kong.log("sub auth header",k,": ",v)
+  end
+  for k,v in pairs(auth_token.data) do
+    kong.log("sub auth data",k,": ",v)
+  end
+  kong.log("auth_token.method ",auth_token.method)
+  local auth_response_json,status,header = http_request(auth_token.url,auth_token.method,auth_token.headers,JSON:encode(auth_token.data))
+  --need to validate 200 status and cache using 'refreshExpireIn'
+  kong.log(auth_response_json)
+  auth_response = JSON:decode(auth_response_json)
+  local tokenType, accessToken,expiryTimeInMins;
+  for k,v in pairs(auth_response) do
+    kong.log("sub auth response",k,": ",v)
+    if k == "tokenType" then
+      tokenType =v;
     end
+    if k == "accessToken" then
+      accessToken =v;
+    end
+    if k == "expiresIn" then
+      expiryTimeInMins = tonumber(v) - math.random(2,10);
+    end
+    token = tokenType..' '..accessToken
     headers["authorization"] = token
   end
   
