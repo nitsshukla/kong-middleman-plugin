@@ -3,7 +3,8 @@ local access = require "kong.plugins.aggregator.access"
 
 local MiddlemanHandler = BasePlugin:extend()
 
-MiddlemanHandler.PRIORITY = 900
+MiddlemanHandler.PRIORITY = 700
+--This is made lower than request-transformer's prioirity i.e. 800
 
 function MiddlemanHandler:new()
   MiddlemanHandler.super.new(self, "aggregator")
