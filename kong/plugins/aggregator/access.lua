@@ -105,29 +105,31 @@ function request(url, response, subrequest)
   local auth_response={}  
 
   kong.log("Getting for ", subrequest.name)
-  local auth_token = subrequest["auth_token"]
-  for k,v in pairs(auth_token.headers) do
-    kong.log("sub auth header",k,": ",v)
-  end
-  for k,v in pairs(auth_token.data) do
-    kong.log("sub auth data",k,": ",v)
-  end
-  kong.log("auth_token.method ",auth_token.method)
-  local auth_response_json,status,header = http_request(auth_token.url,auth_token.method,auth_token.headers,JSON:encode(auth_token.data))
-  --need to validate 200 status and cache using 'refreshExpireIn'
-  kong.log(auth_response_json)
-  auth_response = JSON:decode(auth_response_json)
-  local tokenType, accessToken,expiryTimeInMins;
-  for k,v in pairs(auth_response) do
-    kong.log("sub auth response",k,": ",v)
-    if k == "tokenType" then
-      tokenType =v;
+  if subrequest["auth_token"]~=nil then
+    local auth_token = subrequest["auth_token"]
+    for k,v in pairs(auth_token.headers) do
+      kong.log("sub auth header",k,": ",v)
     end
-    if k == "accessToken" then
-      accessToken =v;
+    for k,v in pairs(auth_token.data) do
+      kong.log("sub auth data",k,": ",v)
     end
-    if k == "expiresIn" then
-      expiryTimeInMins = tonumber(v) - math.random(2,10);
+    kong.log("auth_token.method ", auth_token.method)
+    local auth_response_json,status,header = http_request(auth_token.url,auth_token.method,auth_token.headers,JSON:encode(auth_token.data))
+    --need to validate 200 status and cache using 'refreshExpireIn'
+    kong.log(auth_response_json)
+    auth_response = JSON:decode(auth_response_json)
+    local tokenType, accessToken,expiryTimeInMins;
+    for k,v in pairs(auth_response) do
+      kong.log("sub auth response",k,": ",v)
+      if k == "tokenType" then
+        tokenType =v;
+      end
+      if k == "accessToken" then
+        accessToken =v;
+      end
+      if k == "expiresIn" then
+        expiryTimeInMins = tonumber(v) - math.random(2,10);
+      end
     end
     token = tokenType..' '..accessToken
     headers["authorization"] = token
