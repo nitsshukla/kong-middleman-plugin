@@ -14,6 +14,7 @@ local get_headers = ngx.req.get_headers
 local httpLib = require("socket.http")
 local httpsLib = require("ssl.https")
 local socketLib = require("socket")
+local cacheMgr;
 
 local _M = {}
 local THREAD_STATUS_SUSPENDED = "suspended"
@@ -69,14 +70,14 @@ function _M.execute(conf)
   local index = 1;
   kong.log(conf.subrequests_conf[1])
   --kong.log(conf.subrequests_conf["1"])
-  subrequests = conf.subrequests_conf
+  local subrequests = conf.subrequests_conf
   update_tree()
   --local urls = update_arguments(conf.urls)
   for i,subrequest_json in pairs(subrequests) do
       local thread = coroutine.create(request);
       threadArray[index] = thread
       index = index + 1
-      subrequest = JSON:decode(subrequest_json)
+      local subrequest = JSON:decode(subrequest_json)
       subrequest = get_filled_request(subrequest)
       coroutine.resume(thread, url, aggregate_response, subrequest)
       --take care of defaults?
@@ -99,14 +100,8 @@ function checkAllThreadSuspended( threadArray )
   return false
 end
 
-function request(url, response, subrequest)
-  kong.log("requesting url: ", url, " method: ", subrequest.method)
-  local headers=get_headers() --any other header?
-  local auth_response={}  
-
-  kong.log("Getting for ", subrequest.name)
-  if subrequest["auth_token"]~=nil then
-    local auth_token = subrequest["auth_token"]
+function get_refresh_token(key)
+    local auth_token = JSON:decode(key)
     for k,v in pairs(auth_token.headers) do
       kong.log("sub auth header",k,": ",v)
     end
@@ -116,8 +111,12 @@ function request(url, response, subrequest)
     kong.log("auth_token.method ", auth_token.method)
     local auth_response_json,status,header = http_request(auth_token.url,auth_token.method,auth_token.headers,JSON:encode(auth_token.data))
     --need to validate 200 status and cache using 'refreshExpireIn'
+    if status ~= 200 then
+      kong.log("Auth service failed to return"); --should retry
+      return nil;
+    end
     kong.log(auth_response_json)
-    auth_response = JSON:decode(auth_response_json)
+    local auth_response = JSON:decode(auth_response_json)
     local tokenType, accessToken,expiryTimeInMins;
     for k,v in pairs(auth_response) do
       kong.log("sub auth response",k,": ",v)
@@ -131,15 +130,30 @@ function request(url, response, subrequest)
         expiryTimeInMins = tonumber(v) - math.random(2,10);
       end
     end
-    token = tokenType..' '..accessToken
-    headers["authorization"] = token
+    return tokenType..' '..accessToken
+end
+
+function request(url, response, subrequest)
+  kong.log("requesting url: ", url, " method: ", subrequest.method)
+  local headers=get_headers() --any other header?
+  local auth_response={}  
+
+  kong.log("Getting for ", subrequest.name)
+  if subrequest["auth_token"]~=nil then
+    if cacheMgr == nil then
+      cacheMgr = kong.cache
+      kong.log("created cache")
+    end
+    local auth_token_info = subrequest["auth_token"];
+    auth_token_info["name"]=subrequest.name;
+    local  auth_token_info_json = JSON:encode(auth_token_info);
+    headers["authorization"] = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
   end
   
   for k,v in pairs(headers) do
     kong.log("header",k,": ",v)
   end
  kong.log("original subrequest: ", subrequest);
--- local body, status, header = http_request(url,subrequest.method,headers,'{               "channel" : "ALL",              "list" : ["987600026_BLACK"],                "key": "123"}') --hard-coded source
  local body, status, header = http_request(subrequest.url,subrequest.method,headers,subrequest.data)
  response[subrequest.name] = {body=body,status=status,header=header}
 end
@@ -162,7 +176,7 @@ function http_request(url, method, headers, source)
   if string.lower(method)=="post" then
     request_info["source"]=ltn12.source.string(source)
   end
-  local body_response,r,h;
+  local body_response,b,r,h;
   if string.match(url,"^https.*") then
     b,r,h = httpsLib.request(request_info)
     body_response = table.concat(chunks)
@@ -175,6 +189,23 @@ function http_request(url, method, headers, source)
       kong.log("response header",k,": ",v)
   end
   return body_response,r,h; 
+end
+
+--- Get the Kong key either from cache or the given `location`
+-- @param key the cache key to lookup first
+-- @param location the location of the key file
+-- @return the key contents
+local function get_kong_key(key, location)
+  -- This will add a non expiring TTL on this cached value
+  -- https://github.com/thibaultcha/lua-resty-mlcache/blob/master/README.md
+  local pkey, err = singletons.cache:get(key, { ttl = 0 }, read_from_file, location)
+
+  if err then
+    ngx.log(ngx.ERR, "Could not retrieve pkey: ", err)
+    return
+  end
+
+  return pkey
 end
 
 return _M
