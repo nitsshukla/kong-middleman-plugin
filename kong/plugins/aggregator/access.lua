@@ -127,7 +127,8 @@ function request(url, response, subrequest)
     auth_token_info_json = JSON:encode(auth_token_info);
     local accessToken = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
     if accessToken == nil then
-        return
+      kong.log("accessToken found to be null in 1st attempt");
+      return
     end
     headers["authorization"] = accessToken
     local ttl = cacheMgr:probe(auth_token_info_json)
@@ -142,10 +143,12 @@ function request(url, response, subrequest)
   if isOAuthAuthenticatedSubrequest then
     local body_response = JSON:decode(body_text);
     if body_response.status ~= nil and body_response.status.statusCode == 1 then
+      kong.log("Token expired.");
       --token has expired
       cacheMgr:invalidate(auth_token_info_json);
       local accessToken = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
       if accessToken == nil then
+        kong.log("accessToken found to be null");
         return
       end
       headers["authorization"] = accessToken
