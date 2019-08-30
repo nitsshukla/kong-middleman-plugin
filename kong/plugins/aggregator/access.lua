@@ -92,31 +92,24 @@ end
 
 function get_refresh_token(key)
     local auth_token = JSON:decode(key)
-    for k,v in pairs(auth_token.headers) do
-      kong.log("sub auth header",k,": ",v)
-    end
-    for k,v in pairs(auth_token.data) do
-      kong.log("sub auth data",k,": ",v)
-    end
-    kong.log("auth_token.method ", auth_token.method)
     local auth_response_json,status,header = http_request(auth_token.url,auth_token.method,auth_token.headers,JSON:encode(auth_token.data))
     --need to validate 200 status and cache using 'refreshExpireIn'
     if status ~= 200 then
       kong.log("Auth service failed to return"); --should retry
       return nil;
     end
-    kong.log(auth_response_json)
+    --kong.log(auth_response_json)
     local auth_response = JSON:decode(auth_response_json)
     return auth_response.tokenType..' '..auth_response.accessToken;
 end
 
 function request(url, response, subrequest)
-  kong.log("requesting url: ", url, " method: ", subrequest.method)
+  --kong.log("requesting url: ", url, " method: ", subrequest.method)
   local headers=get_headers() --any other header?
   local isOAuthAuthenticatedSubrequest = subrequest["auth_token"]~=nil;
   local auth_token_info_json;
 
-  kong.log("Getting for ", subrequest.name)
+  --kong.log("Getting for ", subrequest.name)
   if isOAuthAuthenticatedSubrequest then
     if cacheMgr == nil then
       cacheMgr = kong.cache
@@ -131,14 +124,11 @@ function request(url, response, subrequest)
       return
     end
     headers["authorization"] = accessToken
-    local ttl = cacheMgr:probe(auth_token_info_json)
-    kong.log("TTL", ttl);
+    --local ttl = cacheMgr:probe(auth_token_info_json)
+    --kong.log("TTL", ttl);
   end
   
-  for k,v in pairs(headers) do
-    kong.log("header",k,": ",v)
-  end
-  kong.log("original subrequest: ", subrequest);
+--  kong.log("original subrequest: ", subrequest);
   local body_text, status, header = http_request(subrequest.url,subrequest.method,headers,subrequest.data)
   if isOAuthAuthenticatedSubrequest then
     local body_response = JSON:decode(body_text);
@@ -157,6 +147,7 @@ function request(url, response, subrequest)
   end
   response[subrequest.name] = {body=body_text,status=status,header=header}
 end
+
 --- HTTP request for given inputs
 -- @param url the cache key to lookup first
 -- @param method the location of the key file
@@ -167,7 +158,7 @@ function http_request(url, method, headers, source)
  
   if string.lower(method)=="post" then
     headers["Content-Length"]=#source
-    kong.log("post doing ")
+    --kong.log("post doing ")
   end
 
   local request_info = {
@@ -185,11 +176,7 @@ function http_request(url, method, headers, source)
     immediate_body_response,status,header_response = httpLib.request(request_info)
   end
   body_response = table.concat(chunks)
-  kong.log(body_response,"status",status)
-  for k,v in pairs(header_response) do
-      kong.log("response header",k,": ",v)
-  end
-  return body_response,status,header_response; 
+  return body_response,status,header_response;
 end
 
 return _M
