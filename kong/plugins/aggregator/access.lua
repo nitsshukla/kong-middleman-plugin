@@ -107,22 +107,7 @@ function get_refresh_token(key)
     end
     kong.log(auth_response_json)
     local auth_response = JSON:decode(auth_response_json)
-    local tokenType, accessToken,expiryTimeInMins;
-    for k,v in pairs(auth_response) do
-      kong.log("sub auth response",k,": ",v)
-      if k == "tokenType" then
-        tokenType =v;
-      end
-      if k == "accessToken" then
-        accessToken =v;
-      end
-      if k == "expiresIn" then
-        expiryTimeInMins = tonumber(v) - math.random(2,10);
-      end
-    end
-    kong.log("auth_response[accessToken] ", auth_response.accessToken)
-    kong.log("auth_response[accessToken] ", auth_response[accessToken])
-    return tokenType..' '..accessToken
+    return auth_response.tokenType..' '..auth_response.accessToken, auth_response.expiresIn
 end
 
 function request(url, response, subrequest)
@@ -139,6 +124,8 @@ function request(url, response, subrequest)
     auth_token_info["name"]=subrequest.name;
     local  auth_token_info_json = JSON:encode(auth_token_info);
     headers["authorization"] = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
+    local ttl = cacheMgr:probe(auth_token_info_json)
+    kong.log("TTL", ttl);
   end
   
   for k,v in pairs(headers) do
