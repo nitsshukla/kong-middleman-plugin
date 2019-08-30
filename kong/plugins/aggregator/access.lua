@@ -113,17 +113,23 @@ end
 function request(url, response, subrequest)
   kong.log("requesting url: ", url, " method: ", subrequest.method)
   local headers=get_headers() --any other header?
+  local isOAuthAuthenticatedSubrequest = subrequest["auth_token"]~=nil;
+  local auth_token_info_json;
 
   kong.log("Getting for ", subrequest.name)
-  if subrequest["auth_token"]~=nil then
+  if isOAuthAuthenticatedSubrequest then
     if cacheMgr == nil then
       cacheMgr = kong.cache
       kong.log("created cache")
     end
     local auth_token_info = subrequest["auth_token"];
     auth_token_info["name"]=subrequest.name;
-    local  auth_token_info_json = JSON:encode(auth_token_info);
-    headers["authorization"] = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
+    auth_token_info_json = JSON:encode(auth_token_info);
+    local accessToken = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
+    if accessToken == nil then
+        return
+    end
+    headers["authorization"] = accessToken
     local ttl = cacheMgr:probe(auth_token_info_json)
     kong.log("TTL", ttl);
   end
@@ -131,9 +137,22 @@ function request(url, response, subrequest)
   for k,v in pairs(headers) do
     kong.log("header",k,": ",v)
   end
- kong.log("original subrequest: ", subrequest);
- local body, status, header = http_request(subrequest.url,subrequest.method,headers,subrequest.data)
- response[subrequest.name] = {body=body,status=status,header=header}
+  kong.log("original subrequest: ", subrequest);
+  local body_text, status, header = http_request(subrequest.url,subrequest.method,headers,subrequest.data)
+  if isOAuthAuthenticatedSubrequest then
+    local body_response = JSON:decode(body_text);
+    if body_response.status ~= nil and body_response.status.statusCode == 1 then
+      --token has expired
+      cacheMgr:invalidate(auth_token_info_json);
+      local accessToken = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
+      if accessToken == nil then
+        return
+      end
+      headers["authorization"] = accessToken
+      body_text, status, header = http_request(subrequest.url,subrequest.method,headers,subrequest.data)
+    end
+  end
+  response[subrequest.name] = {body=body_text,status=status,header=header}
 end
 --- HTTP request for given inputs
 -- @param url the cache key to lookup first
