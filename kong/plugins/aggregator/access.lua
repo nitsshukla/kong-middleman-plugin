@@ -1,10 +1,7 @@
 local JSON = require "kong.plugins.aggregator.json"
-local cjson = require "cjson"
 local url = require "socket.url"
 
 local kong = kong
-
-local string_format = string.format
 
 local kong_response = kong.response
 
@@ -40,22 +37,16 @@ function update_tree()
     aggregator_args_tree[ARGUMENT_PREFIX..index]=path_split
     index=index+1
   end
-  --kong.log("Updated tree", JSON:encode(aggregator_args_tree))
 end
 
 function get_filled_request(subrequest)
   kong.log("Got url", subrequest.url)
-  local index = 1;
-  --kong.log("Updated tree", JSON:encode(aggregator_args_tree))
-  kong.log(aggregator_args_tree["$1"])
   for key, value in pairs(aggregator_args_tree) do
     kong.log(key,value)
     subrequest.url=string.gsub(subrequest.url,key,value)
     if subrequest.data ~= nil then
       subrequest.data=string.gsub(subrequest.data,key,value)
     end
-    kong.log("Changed url: ", subrequest.url)
-    kong.log("Changed data: ", subrequest.data)
   end
   return subrequest;
 end
@@ -69,7 +60,6 @@ function _M.execute(conf)
   local threadArray = {}
   local index = 1;
   kong.log(conf.subrequests_conf[1])
-  --kong.log(conf.subrequests_conf["1"])
   local subrequests = conf.subrequests_conf
   update_tree()
   --local urls = update_arguments(conf.urls)
@@ -130,13 +120,14 @@ function get_refresh_token(key)
         expiryTimeInMins = tonumber(v) - math.random(2,10);
       end
     end
+    kong.log("auth_response[accessToken] ", auth_response.accessToken)
+    kong.log("auth_response[accessToken] ", auth_response[accessToken])
     return tokenType..' '..accessToken
 end
 
 function request(url, response, subrequest)
   kong.log("requesting url: ", url, " method: ", subrequest.method)
   local headers=get_headers() --any other header?
-  local auth_response={}  
 
   kong.log("Getting for ", subrequest.name)
   if subrequest["auth_token"]~=nil then
@@ -157,10 +148,13 @@ function request(url, response, subrequest)
  local body, status, header = http_request(subrequest.url,subrequest.method,headers,subrequest.data)
  response[subrequest.name] = {body=body,status=status,header=header}
 end
-
+--- HTTP request for given inputs
+-- @param url the cache key to lookup first
+-- @param method the location of the key file
+-- @return the response, status, header
 function http_request(url, method, headers, source)
-  local chunks={} 
-  kong.log("url: ",url," method: ", JSON:encode(method))
+  local chunks={}
+  local body_response,immediate_body_response,status,header_response;
  
   if string.lower(method)=="post" then
     headers["Content-Length"]=#source
@@ -176,36 +170,17 @@ function http_request(url, method, headers, source)
   if string.lower(method)=="post" then
     request_info["source"]=ltn12.source.string(source)
   end
-  local body_response,b,r,h;
   if string.match(url,"^https.*") then
-    b,r,h = httpsLib.request(request_info)
-    body_response = table.concat(chunks)
+    immediate_body_response,status,header_response = httpsLib.request(request_info)
   else
-    b,r,h = httpLib.request(request_info)
-    body_response = table.concat(chunks)
+    immediate_body_response,status,header_response = httpLib.request(request_info)
   end
-  kong.log(body_response,"status",r)
-  for k,v in pairs(h) do
+  body_response = table.concat(chunks)
+  kong.log(body_response,"status",status)
+  for k,v in pairs(header_response) do
       kong.log("response header",k,": ",v)
   end
-  return body_response,r,h; 
-end
-
---- Get the Kong key either from cache or the given `location`
--- @param key the cache key to lookup first
--- @param location the location of the key file
--- @return the key contents
-local function get_kong_key(key, location)
-  -- This will add a non expiring TTL on this cached value
-  -- https://github.com/thibaultcha/lua-resty-mlcache/blob/master/README.md
-  local pkey, err = singletons.cache:get(key, { ttl = 0 }, read_from_file, location)
-
-  if err then
-    ngx.log(ngx.ERR, "Could not retrieve pkey: ", err)
-    return
-  end
-
-  return pkey
+  return body_response,status,header_response; 
 end
 
 return _M
