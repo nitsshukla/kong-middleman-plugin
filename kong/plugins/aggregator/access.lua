@@ -1,5 +1,8 @@
 local JSON = require "kong.plugins.aggregator.json"
 local url = require "socket.url"
+local requestHttpLua = require "http.request"
+local req_timeout = 0.005
+
 
 local kong = kong
 
@@ -64,22 +67,44 @@ function _M.execute(conf)
   update_tree()
   --local urls = update_arguments(conf.urls)
   for i,subrequest_json in pairs(subrequests) do
-      local thread = coroutine.create(request);
-      threadArray[index] = thread
-      index = index + 1
+      --local thread = coroutine.create(request);
+      --threadArray[index] = thread
+      --index = index + 1
       local subrequest = JSON:decode(subrequest_json)
       subrequest = get_filled_request(subrequest)
-      coroutine.resume(thread, url, aggregate_response, subrequest)
+      local thread = coroutine.create(function() request(subrequest.url,aggregate_response,subrequest) end)
+      table.insert(threads, thread)
+      --coroutine.resume(thread, url, aggregate_response, subrequest)
       --take care of defaults?
   end
 
-  while (checkAllThreadSuspended(threadArray))
-  do  
-    socketLib.sleep(SLEEP_TIME_IN_S)
-  end 
-
+  dispatcher();
   return kong_response.exit(STATUS_OK, aggregate_response)
 end
+
+threads = {} -- list of all live threads
+
+function dispatcher ()
+    while true do
+        local n = table.getn(threads)
+        if n == 0 then break end -- no more threads to run
+        local connections = {}
+        for i=1,n do
+            kong.log (threads[i], "Resuming")
+            local status, res = coroutine.resume(threads[i])
+            if not res then -- thread finished its task?
+                table.remove(threads, i)
+                break
+            else -- timeout
+                table.insert(connections, res)
+            end
+        end
+        if table.getn(connections) == n then
+            socket.select(connections)
+        end
+    end
+end
+
 
 function checkAllThreadSuspended( threadArray )
   for i, thread in ipairs(threadArray) do
@@ -104,12 +129,12 @@ function get_refresh_token(key)
 end
 
 function request(url, response, subrequest)
-  --kong.log("requesting url: ", url, " method: ", subrequest.method)
+  kong.log("requesting url: ", url, " method: ", subrequest.method)
   local headers=get_headers() --any other header?
-  local isOAuthAuthenticatedSubrequest = subrequest["auth_token"]~=nil;
+  local isOAuthAuthenticatedSubrequest = (subrequest["auth_token"]~=nil);
   local auth_token_info_json;
 
-  --kong.log("Getting for ", subrequest.name)
+  kong.log("Getting for ", subrequest.name)
   if isOAuthAuthenticatedSubrequest then
     if cacheMgr == nil then
       cacheMgr = kong.cache
@@ -120,7 +145,7 @@ function request(url, response, subrequest)
     auth_token_info_json = JSON:encode(auth_token_info);
     local accessToken = cacheMgr:get(auth_token_info_json, nil, get_refresh_token, auth_token_info_json);
     if accessToken == nil then
-      kong.log.error("accessToken found to be null in 1st attempt");
+      kong.log("accessToken found to be null in 1st attempt");
       return
     end
     headers["authorization"] = accessToken
@@ -152,31 +177,24 @@ end
 -- @param url the cache key to lookup first
 -- @param method the location of the key file
 -- @return the response, status, header
-function http_request(url, method, headers, source)
-  local chunks={}
-  local body_response,immediate_body_response,status,header_response;
- 
-  if string.lower(method)=="post" then
-    headers["Content-Length"]=#source
-    --kong.log("post doing ")
+function http_request(uri, method, headers, body)
+  local req = requestHttpLua.new_from_uri(uri)
+  req.headers:upsert(":method", method)
+  for key, val in pairs(headers) do
+    req.headers:upsert(key, val)
   end
+  if body ~= nil then req:set_body(body) end
+  local headers, stream = req:go()
+  if headers == nil then
+   --need to see
+  end
+  local chunk;
 
-  local request_info = {
-    url=url,
-    method=method,
-    headers=headers,
-    sink = ltn12.sink.table(chunks)
-  }
-  if string.lower(method)=="post" then
-    request_info["source"]=ltn12.source.string(source)
-  end
-  if string.match(url,"^https.*") then
-    immediate_body_response,status,header_response = httpsLib.request(request_info)
-  else
-    immediate_body_response,status,header_response = httpLib.request(request_info)
-  end
-  body_response = table.concat(chunks)
-  return body_response,status,header_response;
+  repeat
+    chunk = stream:get_next_chunk(req_timeout)
+    coroutine.yield()
+    print(chunk)
+  until (chunk~=nil)
+  return chunk;
 end
-
 return _M
